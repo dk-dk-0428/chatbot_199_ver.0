@@ -2,3 +2,5 @@ streamlit
 openai
 tiktoken
 langchain
+unstructured
+nltk
