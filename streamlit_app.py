@@ -1,52 +1,76 @@
+import os
+from getpass import getpass
 import streamlit as st
-from openai import OpenAI
+from langchain.document_loaders import TextLoader  # 텍스트 파일을 로드하는데 사용.
+from langchain.indexes import VectorstoreIndexCreator  # 문서의 벡터 인덱스를 생성.
+from langchain.embeddings.openai import OpenAIEmbeddings  # OpenAI의 임베딩 사용
+from langchain.chat_models import ChatOpenAI  # OpenAI 챗 모델을 사용하는 클래스
+from langchain.schema import AIMessage  # 응답 객체를 처리하기 위한 AIMessage 클래스 임포트
 
-# Show title and description.
-st.title("💬 Chatbot")
-st.write(
-    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
-)
+# Streamlit 페이지 설정
+st.set_page_config(page_title="랩퍼 소방관 챗봇", layout="centered")
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.text_input("OpenAI API Key", type="password")
-if not openai_api_key:
-    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-else:
+# OpenAI API 키 입력
+api_key = st.text_input("OpenAI API 키를 입력하세요:", type="password")
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+if api_key:
+    os.environ["OPENAI_API_KEY"] = api_key
 
-    # Create a session state variable to store the chat messages. This ensures that the
-    # messages persist across reruns.
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+    # 문서 로드
+    try:
+        loader = TextLoader('C:\\Users\\dkryu\\OneDrive\\문서\\kict240915_chatbot\\data\\data.txt', encoding='utf-8')
+    except FileNotFoundError:
+        st.error("문서가 존재하지 않습니다. 'document.txt' 파일이 있는지 확인하세요.")
+    else:
+        # 인덱스 생성
+        try:
+            embeddings = OpenAIEmbeddings()  # 임베딩 처리
+            index = VectorstoreIndexCreator(embedding=embeddings).from_loaders([loader])  # 문서의 벡터 인덱스 생성
+        except Exception as e:
+            st.error(f"인덱스를 생성하는 중 문제가 발생했습니다: {e}")
+        else:
+            # OpenAI GPT-4 챗 모델 생성
+            try:
+                llm = ChatOpenAI(model="gpt-4", temperature=0.7, max_tokens=300)  # GPT-4 챗 모델 사용
+            except Exception as e:
+                st.error(f"언어 모델을 생성하는 중 문제가 발생했습니다: {e}")
+            else:
+                st.title("랩퍼 소방관 챗봇")
+                st.write("화재 사고나 화학 사고에 대해 물어보세요. 랩퍼 소방관이 멋지게 설명해 드립니다!")
 
-    # Display the existing chat messages via `st.chat_message`.
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+                # 사용자 입력 받기
+                user_input = st.text_input("화학사고/화재 대응에 대해 궁금한 사항을 입력하세요:")
 
-    # Create a chat input field to allow the user to enter a message. This will display
-    # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
+                if st.button("응답 요청"):
+                    if user_input:
+                        # 대화 프롬프트 설정 (랩퍼 소방관 스타일)
+                        messages = [
+                            {
+                                "role": "system",
+                                "content": (
+                                    "Yo, 나는 랩퍼 소방관! "
+                                    "화재 대응부터 소방 안전까지, 리듬 타며 정보를 전해 줄게. "
+                                    "위급 상황에서는 차분하게 대응하고, 소방 지식은 철저하게 알려줘. "
+                                    "모르는 건 모른다고, 확실하지 않으면 확실하지 않다고 말하는 게 나의 방식. "
+                                    "랩처럼 빠르고 리듬 있는 설명을 즐겨!"
+                                ),
+                            },
+                            {
+                                "role": "user",
+                                "content": user_input,
+                            }
+                        ]
 
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+                        # 질문-답변 처리 (invoke 메서드 사용)
+                        try:
+                            response = llm.invoke(input=messages)
+                            if isinstance(response, AIMessage):
+                                st.success(f"\n챗봇 응답: {response.content}")  # content 속성으로 메시지 내용 추출
+                            else:
+                                st.error(f"응답이 예상한 형식이 아닙니다: {response}")
+                        except Exception as e:
+                            st.error(f"응답을 생성하는 중 문제가 발생했습니다: {e}")
 
-        # Generate a response using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
         )
 
         # Stream the response to the chat using `st.write_stream`, then store it in 
