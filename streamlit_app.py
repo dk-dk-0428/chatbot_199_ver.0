@@ -70,11 +70,3 @@ if api_key:
                                 st.error(f"응답이 예상한 형식이 아닙니다: {response}")
                         except Exception as e:
                             st.error(f"응답을 생성하는 중 문제가 발생했습니다: {e}")
-
-        )
-
-        # Stream the response to the chat using `st.write_stream`, then store it in 
-        # session state.
-        with st.chat_message("assistant"):
-            response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
