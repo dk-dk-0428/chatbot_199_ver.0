@@ -1,11 +1,17 @@
 import os
-from getpass import getpass
 import streamlit as st
-from langchain.document_loaders import TextLoader  # 텍스트 파일을 로드하는데 사용.
-from langchain.indexes import VectorstoreIndexCreator  # 문서의 벡터 인덱스를 생성.
-from langchain.embeddings.openai import OpenAIEmbeddings  # OpenAI의 임베딩 사용
-from langchain.chat_models import ChatOpenAI  # OpenAI 챗 모델을 사용하는 클래스
-from langchain.schema import AIMessage  # 응답 객체를 처리하기 위한 AIMessage 클래스 임포트
+import nltk
+
+# NLTK 데이터 경로 설정 및 다운로드
+nltk_data_path = os.path.join(os.path.expanduser("~"), "nltk_data")
+nltk.data.path.append(nltk_data_path)
+nltk.download('punkt', download_dir=nltk_data_path)
+
+from langchain.document_loaders import UnstructuredFileLoader
+from langchain.indexes import VectorstoreIndexCreator
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import AIMessage
 
 # Streamlit 페이지 설정
 st.set_page_config(page_title="랩퍼 소방관 챗봇", layout="centered")
@@ -18,7 +24,8 @@ if api_key:
 
     # 문서 로드
     try:
-        loader = TextLoader('C:\\Users\\dkryu\\OneDrive\\문서\\kict240915_chatbot\\data\\data.txt', encoding='utf-8')
+        loader = UnstructuredFileLoader('C:\\Users\\dkryu\\OneDrive\\문서\\kict240915_chatbot\\data\\data.txt')
+        documents = loader.load()
     except FileNotFoundError:
         st.error("문서가 존재하지 않습니다. 'document.txt' 파일이 있는지 확인하세요.")
     else:
@@ -61,12 +68,13 @@ if api_key:
                             }
                         ]
 
-                        # 질문-답변 처리 (invoke 메서드 사용)
+                        # 질문-답변 처리
                         try:
-                            response = llm.invoke(input=messages)
+                            response = llm.generate(messages=messages)
                             if isinstance(response, AIMessage):
                                 st.success(f"\n챗봇 응답: {response.content}")  # content 속성으로 메시지 내용 추출
                             else:
                                 st.error(f"응답이 예상한 형식이 아닙니다: {response}")
                         except Exception as e:
                             st.error(f"응답을 생성하는 중 문제가 발생했습니다: {e}")
+
