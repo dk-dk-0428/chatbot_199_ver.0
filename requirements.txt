@@ -6,4 +6,4 @@ unstructured==0.15.12
 nltk==3.7
 python-magic
 langchain-community
-
+requests
